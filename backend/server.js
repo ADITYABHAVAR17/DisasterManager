@@ -7,6 +7,7 @@ import reportRoutes from "./routes/reportRoutes.js";
 import resourceRoutes from "./routes/resourceRoutes.js";
 import dashboardRoutes from "./routes/dashboardRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
+import predictiveRoutes from "./predictive/predictiveRoutes.js";
 import cors from "cors";
 
 dotenv.config();
@@ -21,6 +22,7 @@ app.use("/api/reports", reportRoutes);
 app.use("/api/resources", resourceRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/auth", authRoutes);
+app.use("/api/predictive", predictiveRoutes);
 
 // create server + socket.io
 const httpServer = http.createServer(app);

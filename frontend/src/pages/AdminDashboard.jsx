@@ -5,6 +5,7 @@ import { useAuth } from "../contexts/AuthContext";
 import RealtimeMap from "../components/RealtimeMap";
 import InteractiveOperationsMap from "../components/InteractiveOperationsMap";
 import InteractiveResourceMap from "../components/InteractiveResourceMap";
+import PredictiveAnalytics from "../components/PredictiveAnalytics";
 import io from "socket.io-client";
 
 export default function AdminDashboard() {
@@ -397,6 +398,7 @@ export default function AdminDashboard() {
     { id: 'resources', label: 'Resources', icon: MapPin },
     { id: 'resource-management', label: 'Resource Management', icon: MapPin },
     { id: 'interactive-map', label: 'Interactive Map', icon: MapPin },
+    { id: 'predictive-analytics', label: 'Predictive Analytics', icon: TrendingUp },
     { id: 'realtime', label: 'Real-time Map', icon: Radio },
     { id: 'ai-insights', label: 'AI Insights', icon: TrendingUp }
   ];
@@ -1050,6 +1052,27 @@ export default function AdminDashboard() {
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'predictive-analytics' && (
+          <div className="bg-white rounded-lg shadow-md overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5 text-purple-500" />
+                    Predictive Analytics & Risk Assessment
+                  </h2>
+                  <p className="text-sm text-gray-600 mt-1">
+                    AI-powered disaster risk prediction based on weather and terrain analysis
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="p-6">
+              <PredictiveAnalytics />
             </div>
           </div>
         )}

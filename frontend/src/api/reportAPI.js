@@ -133,6 +133,51 @@ export const dashboardAPI = {
   }
 };
 
+// Predictive Analytics API endpoints
+export const predictiveAPI = {
+  // Get comprehensive predictive analytics dashboard
+  getAnalytics: async (region = 'pittsburgh') => {
+    const { data } = await axios.get(`${API_BASE_URL}/predictive/analytics?region=${region}`);
+    return data;
+  },
+
+  // Get risk analysis for specific location
+  getRiskAnalysis: async (lat, lng, analysisType = 'comprehensive') => {
+    const { data } = await axios.get(
+      `${API_BASE_URL}/predictive/risk-analysis?lat=${lat}&lng=${lng}&analysisType=${analysisType}`
+    );
+    return data;
+  },
+
+  // Get risk map for region
+  getRiskMap: async (centerLat, centerLng, radiusKm = 10, gridSize = 5) => {
+    const { data } = await axios.get(
+      `${API_BASE_URL}/predictive/risk-map?centerLat=${centerLat}&centerLng=${centerLng}&radiusKm=${radiusKm}&gridSize=${gridSize}`
+    );
+    return data;
+  },
+
+  // Get weather analysis
+  getWeatherAnalysis: async (lat, lng) => {
+    const { data } = await axios.get(`${API_BASE_URL}/predictive/weather?lat=${lat}&lng=${lng}`);
+    return data;
+  },
+
+  // Get terrain analysis
+  getTerrainAnalysis: async (lat, lng) => {
+    const { data } = await axios.get(`${API_BASE_URL}/predictive/terrain?lat=${lat}&lng=${lng}`);
+    return data;
+  },
+
+  // Get historical incident analysis
+  getHistoricalAnalysis: async (lat, lng, radiusKm = 5, months = 12) => {
+    const { data } = await axios.get(
+      `${API_BASE_URL}/predictive/historical?lat=${lat}&lng=${lng}&radiusKm=${radiusKm}&months=${months}`
+    );
+    return data;
+  }
+};
+
 // Legacy export for backward compatibility
 export const fetchReports = async () => {
   const result = await reportAPI.getReports();
