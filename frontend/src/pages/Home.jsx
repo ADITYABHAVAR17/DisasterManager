@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { AlertTriangle, MapPin, BarChart3, Shield, Clock, Users } from 'lucide-react';
+import { AlertTriangle, MapPin, BarChart3, Shield, Clock, Users, Radio } from 'lucide-react';
 
 const Home = () => {
   const features = [
@@ -18,6 +18,14 @@ const Home = () => {
       action: 'View Map',
       link: '/map',
       color: 'blue'
+    },
+    {
+      icon: Radio,
+      title: 'Real-time Updates',
+      description: 'Get instant notifications and live updates of emergency situations.',
+      action: 'Live Updates',
+      link: '/realtime',
+      color: 'purple'
     },
     {
       icon: BarChart3,
@@ -58,11 +66,11 @@ const Home = () => {
                 Report Emergency
               </Link>
               <Link
-                to="/map"
+                to="/realtime"
                 className="border-2 border-white text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-white hover:text-red-600 transition-colors flex items-center justify-center gap-2"
               >
-                <MapPin className="h-5 w-5" />
-                View Live Map
+                <Radio className="h-5 w-5" />
+                Real-time Updates
               </Link>
             </div>
           </div>
@@ -94,7 +102,7 @@ const Home = () => {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-8">
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
           {features.map(({ icon: Icon, title, description, action, link, color }) => (
             <div key={title} className="bg-white rounded-xl shadow-lg p-8 hover:shadow-xl transition-shadow">
               <div className={`bg-${color}-100 w-16 h-16 rounded-lg flex items-center justify-center mb-6`}>

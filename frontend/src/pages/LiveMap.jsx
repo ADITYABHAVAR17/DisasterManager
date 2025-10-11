@@ -22,9 +22,15 @@ const LiveMap = () => {
     const fetchReports = async () => {
       try {
         const response = await axios.get('http://localhost:5000/api/reports');
-        setReports(response.data);
+        const data = response.data;
+        
+        // Ensure data is an array
+        const reportsArray = Array.isArray(data) ? data : [];
+        setReports(reportsArray);
       } catch (error) {
         console.error('Error fetching reports:', error);
+        // Set empty array on error to prevent crashes
+        setReports([]);
       } finally {
         setLoading(false);
       }
@@ -85,7 +91,7 @@ const LiveMap = () => {
             <div className="flex items-center gap-4 text-sm">
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                <span>Active Incidents: {reports.length}</span>
+                <span>Active Incidents: {Array.isArray(reports) ? reports.length : 0}</span>
               </div>
             </div>
           </div>
@@ -104,10 +110,10 @@ const LiveMap = () => {
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             />
-            {reports.map((report) => (
+            {Array.isArray(reports) && reports.map((report) => (
               <Marker
                 key={report._id}
-                position={[report.location.lat, report.location.lng]}
+                position={[report.location?.lat || 0, report.location?.lng || 0]}
                 icon={createCustomIcon(report.disasterType)}
                 eventHandlers={{
                   click: () => setSelectedReport(report)
@@ -135,7 +141,7 @@ const LiveMap = () => {
           </div>
           
           <div className="divide-y">
-            {reports.map((report) => (
+            {Array.isArray(reports) && reports.map((report) => (
               <div
                 key={report._id}
                 className={`p-4 cursor-pointer hover:bg-gray-50 transition-colors ${
@@ -179,7 +185,7 @@ const LiveMap = () => {
             ))}
           </div>
 
-          {reports.length === 0 && (
+          {(!Array.isArray(reports) || reports.length === 0) && !loading && (
             <div className="p-8 text-center text-gray-500">
               <MapPin className="h-12 w-12 mx-auto mb-4 text-gray-300" />
               <p>No incidents reported yet</p>

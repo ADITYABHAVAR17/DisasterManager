@@ -10,7 +10,7 @@ const icons = {
 
 export default function MapView({ reports }) {
   return (
-    <MapContainer center={[18.5204, 73.8567]} zoom={10} className="h-[80vh] w-full rounded-2xl">
+    <MapContainer center={[20.5937, 78.9629]} zoom={10} className="h-[80vh] w-full rounded-2xl">
       <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
       {reports.map((report) => (
         <Marker

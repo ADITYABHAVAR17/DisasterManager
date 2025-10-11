@@ -91,7 +91,27 @@ const ReportForm = () => {
     
     if (files && files[0]) {
       const file = files[0];
-      setFormData({ ...formData, [name]: file });
+      console.log("File selected:", file);
+      console.log("File type:", file.type);
+      console.log("File size:", file.size);
+      
+      // Validate file type
+      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'video/mp4', 'video/mov'];
+      if (!allowedTypes.includes(file.type)) {
+        alert('Please select a valid image (JPEG, PNG) or video (MP4, MOV) file.');
+        e.target.value = ''; // Clear the input
+        return;
+      }
+      
+      // Validate file size (10MB limit)
+      const maxSize = 10 * 1024 * 1024; // 10MB in bytes
+      if (file.size > maxSize) {
+        alert('File size must be less than 10MB.');
+        e.target.value = ''; // Clear the input
+        return;
+      }
+      
+      setFormData(prev => ({ ...prev, [name]: file }));
       
       // Create preview
       const reader = new FileReader();
@@ -101,7 +121,7 @@ const ReportForm = () => {
       };
       reader.readAsDataURL(file);
     } else {
-      setFormData({ ...formData, [name]: value });
+      setFormData(prev => ({ ...prev, [name]: value }));
       
       // Update position if lat/lng changed manually
       if (name === 'lat' || name === 'lng') {
@@ -202,11 +222,30 @@ const ReportForm = () => {
       data.append("description", formData.description);
       data.append("lat", formData.lat);
       data.append("lng", formData.lng);
-      if (formData.media) data.append("media", formData.media);
+      
+      // Debug logging for file upload
+      console.log("FormData media:", formData.media);
+      console.log("Media type:", formData.media?.type);
+      console.log("Media size:", formData.media?.size);
+      
+      if (formData.media) {
+        // Ensure the file is properly formatted
+        console.log("Appending media file:", formData.media);
+        data.append("media", formData.media);
+      }
 
-      await axios.post("http://localhost:5000/api/reports", data, {
-        headers: { "Content-Type": "multipart/form-data" },
+      // Log all FormData entries
+      for (let [key, value] of data.entries()) {
+        console.log(key, value);
+      }
+
+      const response = await axios.post("http://localhost:5000/api/reports", data, {
+        headers: { 
+          "Content-Type": "multipart/form-data",
+        },
       });
+
+      console.log("Response:", response.data);
 
       setShowSuccess(true);
       // Reset form
@@ -225,7 +264,8 @@ const ReportForm = () => {
       setTimeout(() => setShowSuccess(false), 3000);
     } catch (error) {
       console.error("Error submitting report:", error);
-      alert("Failed to submit report. Please try again.");
+      console.error("Error response:", error.response?.data);
+      alert(`Failed to submit report: ${error.response?.data?.message || error.message}`);
     } finally {
       setIsSubmitting(false);
     }
