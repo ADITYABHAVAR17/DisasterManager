@@ -8,66 +8,43 @@ const ReportForm = () => {
     description: "",
     lat: "",
     lng: "",
-    mediaUrl: "",
+    media: null,
   });
+
+  const handleChange = (e) => {
+    const { name, value, files } = e.target;
+    if (files) setFormData({ ...formData, [name]: files[0] });
+    else setFormData({ ...formData, [name]: value });
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const { name, disasterType, description, lat, lng, mediaUrl } = formData;
+    const data = new FormData();
+    data.append("name", formData.name);
+    data.append("disasterType", formData.disasterType);
+    data.append("description", formData.description);
+    data.append("lat", formData.lat);
+    data.append("lng", formData.lng);
+    if (formData.media) data.append("media", formData.media);
 
-    await axios.post("http://localhost:5000/api/reports", {
-      name,
-      disasterType,
-      description,
-      location: { lat, lng },
-      mediaUrl,
+    await axios.post("http://localhost:5000/api/reports", data, {
+      headers: { "Content-Type": "multipart/form-data" },
     });
 
-    alert("Report Submitted Successfully ✅");
+    alert("Report submitted successfully ✅");
   };
 
   return (
     <div className="p-5 bg-gray-100 rounded-xl shadow-md w-[400px] mx-auto">
       <h2 className="text-xl font-bold mb-4 text-center">Report an Incident</h2>
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-        <input
-          type="text"
-          placeholder="Your Name"
-          className="p-2 border rounded"
-          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-        />
-        <input
-          type="text"
-          placeholder="Disaster Type (Flood, Fire, etc)"
-          className="p-2 border rounded"
-          onChange={(e) => setFormData({ ...formData, disasterType: e.target.value })}
-        />
-        <textarea
-          placeholder="Description"
-          className="p-2 border rounded"
-          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-        />
-        <input
-          type="text"
-          placeholder="Latitude"
-          className="p-2 border rounded"
-          onChange={(e) => setFormData({ ...formData, lat: e.target.value })}
-        />
-        <input
-          type="text"
-          placeholder="Longitude"
-          className="p-2 border rounded"
-          onChange={(e) => setFormData({ ...formData, lng: e.target.value })}
-        />
-        <input
-          type="text"
-          placeholder="Media URL (optional)"
-          className="p-2 border rounded"
-          onChange={(e) => setFormData({ ...formData, mediaUrl: e.target.value })}
-        />
-        <button className="bg-blue-600 text-white py-2 rounded hover:bg-blue-700">
-          Submit Report
-        </button>
+        <input name="name" placeholder="Your Name" className="p-2 border rounded" onChange={handleChange} />
+        <input name="disasterType" placeholder="Disaster Type" className="p-2 border rounded" onChange={handleChange} />
+        <textarea name="description" placeholder="Description" className="p-2 border rounded" onChange={handleChange} />
+        <input name="lat" placeholder="Latitude" className="p-2 border rounded" onChange={handleChange} />
+        <input name="lng" placeholder="Longitude" className="p-2 border rounded" onChange={handleChange} />
+        <input name="media" type="file" className="p-2 border rounded" onChange={handleChange} />
+        <button className="bg-blue-600 text-white py-2 rounded hover:bg-blue-700">Submit Report</button>
       </form>
     </div>
   );
