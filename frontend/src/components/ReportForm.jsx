@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import axios from "axios";
+import { reportAPI } from "../api/reportAPI.js";
 import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import { Camera, Upload, MapPin, AlertTriangle, User, FileText, CheckCircle, X, Loader } from "lucide-react";
@@ -26,11 +26,16 @@ const LocationPicker = ({ position, setPosition }) => {
 const ReportForm = () => {
   const [formData, setFormData] = useState({
     name: "",
-    disasterType: "",
+    phone: "",
+    incidentType: "",
+    urgency: "",
     description: "",
     lat: "",
     lng: "",
     media: null,
+    additionalContact: "",
+    witnessCount: "",
+    estimatedAffected: ""
   });
 
   const [position, setPosition] = useState(null);
@@ -46,9 +51,23 @@ const ReportForm = () => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
 
-  const disasterTypes = [
-    "Earthquake", "Flood", "Fire", "Hurricane", "Tornado", 
-    "Landslide", "Tsunami", "Drought", "Volcanic Eruption", "Other"
+  const incidentTypes = [
+    { value: "blocked-road", label: "Blocked Roads", icon: "🚧", category: "Infrastructure" },
+    { value: "missing-person", label: "Missing Person", icon: "👤", category: "Emergency" },
+    { value: "infrastructure-damage", label: "Infrastructure Damage", icon: "🏗️", category: "Infrastructure" },
+    { value: "medical-emergency", label: "Medical Emergency", icon: "🚑", category: "Emergency" },
+    { value: "fire-emergency", label: "Fire", icon: "🔥", category: "Disaster" },
+    { value: "flood", label: "Flood", icon: "🌊", category: "Disaster" },
+    { value: "earthquake", label: "Earthquake", icon: "🌍", category: "Disaster" },
+    { value: "severe-weather", label: "Severe Weather", icon: "⛈️", category: "Disaster" },
+    { value: "other", label: "Other Emergency", icon: "⚠️", category: "Emergency" }
+  ];
+
+  const urgencyLevels = [
+    { value: "low", label: "Low Priority", color: "green", description: "Non-urgent, can wait" },
+    { value: "moderate", label: "Moderate Priority", color: "yellow", description: "Important, address soon" },
+    { value: "urgent", label: "Urgent Priority", color: "orange", description: "Urgent, immediate attention" },
+    { value: "immediate", label: "Immediate Emergency", color: "red", description: "Life-threatening, respond immediately" }
   ];
 
   // Get current location
@@ -200,9 +219,15 @@ const ReportForm = () => {
     const newErrors = {};
     
     if (!formData.name.trim()) newErrors.name = 'Name is required';
-    if (!formData.disasterType) newErrors.disasterType = 'Disaster type is required';
+    if (!formData.incidentType) newErrors.incidentType = 'Incident type is required';
+    if (!formData.urgency) newErrors.urgency = 'Urgency level is required';
     if (!formData.description.trim()) newErrors.description = 'Description is required';
     if (!formData.lat || !formData.lng) newErrors.location = 'Location is required';
+    
+    // Validate phone number format if provided
+    if (formData.phone && !/^\+?[\d\s\-()]+$/.test(formData.phone)) {
+      newErrors.phone = 'Please enter a valid phone number';
+    }
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -216,56 +241,53 @@ const ReportForm = () => {
     setIsSubmitting(true);
     
     try {
-      const data = new FormData();
-      data.append("name", formData.name);
-      data.append("disasterType", formData.disasterType);
-      data.append("description", formData.description);
-      data.append("lat", formData.lat);
-      data.append("lng", formData.lng);
-      
-      // Debug logging for file upload
-      console.log("FormData media:", formData.media);
-      console.log("Media type:", formData.media?.type);
-      console.log("Media size:", formData.media?.size);
-      
-      if (formData.media) {
-        // Ensure the file is properly formatted
-        console.log("Appending media file:", formData.media);
-        data.append("media", formData.media);
+      const reportData = {
+        name: formData.name,
+        phone: formData.phone,
+        incidentType: formData.incidentType,
+        urgency: formData.urgency,
+        description: formData.description,
+        lat: formData.lat,
+        lng: formData.lng,
+        additionalContact: formData.additionalContact || "",
+        witnessCount: formData.witnessCount || "1",
+        estimatedAffected: formData.estimatedAffected || "1"
+      };
+
+      console.log("Submitting report data:", reportData);
+      console.log("Media file:", formData.media);
+
+      const response = await reportAPI.createReport(reportData, formData.media);
+
+      console.log("Response:", response);
+
+      if (response.success) {
+        setShowSuccess(true);
+        // Reset form
+        setFormData({
+          name: "",
+          phone: "",
+          incidentType: "",
+          urgency: "",
+          description: "",
+          lat: "",
+          lng: "",
+          media: null,
+          additionalContact: "",
+          witnessCount: "",
+          estimatedAffected: ""
+        });
+        setPosition(null);
+        setMediaPreview(null);
+        setMediaType(null);
+        
+        setTimeout(() => setShowSuccess(false), 5000);
+      } else {
+        throw new Error(response.message || 'Failed to submit report');
       }
-
-      // Log all FormData entries
-      for (let [key, value] of data.entries()) {
-        console.log(key, value);
-      }
-
-      const response = await axios.post("http://localhost:5000/api/reports", data, {
-        headers: { 
-          "Content-Type": "multipart/form-data",
-        },
-      });
-
-      console.log("Response:", response.data);
-
-      setShowSuccess(true);
-      // Reset form
-      setFormData({
-        name: "",
-        disasterType: "",
-        description: "",
-        lat: "",
-        lng: "",
-        media: null,
-      });
-      setPosition(null);
-      setMediaPreview(null);
-      setMediaType(null);
-      
-      setTimeout(() => setShowSuccess(false), 3000);
     } catch (error) {
       console.error("Error submitting report:", error);
-      console.error("Error response:", error.response?.data);
-      alert(`Failed to submit report: ${error.response?.data?.message || error.message}`);
+      alert(`Failed to submit report: ${error.message}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -275,9 +297,14 @@ const ReportForm = () => {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
       <div className="max-w-6xl mx-auto">
         {showSuccess && (
-          <div className="fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 z-50">
-            <CheckCircle className="h-5 w-5" />
-            Report submitted successfully!
+          <div className="fixed top-4 right-4 bg-green-500 text-white px-6 py-4 rounded-lg shadow-lg z-50 max-w-sm">
+            <div className="flex items-center gap-2 mb-2">
+              <CheckCircle className="h-5 w-5" />
+              <span className="font-semibold">Report Submitted Successfully!</span>
+            </div>
+            <p className="text-sm text-green-100">
+              Your report is being processed by our AI verification system. Emergency responders will be notified if urgent action is needed.
+            </p>
           </div>
         )}
 
@@ -286,9 +313,14 @@ const ReportForm = () => {
             <div className="flex items-center gap-3">
               <AlertTriangle className="h-8 w-8" />
               <div>
-                <h1 className="text-2xl font-bold">Emergency Report</h1>
-                <p className="text-red-100">Help us respond faster by providing accurate information</p>
+                <h1 className="text-2xl font-bold">Citizen Emergency Report</h1>
+                <p className="text-red-100">Report incidents quickly - AI-powered verification ensures rapid response</p>
               </div>
+            </div>
+            <div className="mt-4 bg-red-600 bg-opacity-50 rounded-lg p-3">
+              <p className="text-sm">
+                <strong>📱 Quick Tips:</strong> Include photos/videos, precise location, and detailed description for faster AI verification and emergency response.
+              </p>
             </div>
           </div>
 
@@ -327,20 +359,76 @@ const ReportForm = () => {
                   
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Disaster Type *
+                      Phone Number
                     </label>
-                    <select
-                      name="disasterType"
-                      value={formData.disasterType}
-                      className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors ${errors.disasterType ? 'border-red-500' : 'border-gray-300'}`}
+                    <input
+                      type="tel"
+                      name="phone"
+                      value={formData.phone}
+                      placeholder="Your contact number"
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors"
                       onChange={handleChange}
-                    >
-                      <option value="">Select disaster type</option>
-                      {disasterTypes.map(type => (
-                        <option key={type} value={type}>{type}</option>
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Incident Type *
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {incidentTypes.map(type => (
+                        <label key={type.value} className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${
+                          formData.incidentType === type.value 
+                            ? 'border-red-500 bg-red-50' 
+                            : 'border-gray-300 hover:border-red-300'
+                        }`}>
+                          <input
+                            type="radio"
+                            name="incidentType"
+                            value={type.value}
+                            checked={formData.incidentType === type.value}
+                            onChange={handleChange}
+                            className="sr-only"
+                          />
+                          <span className="text-xl">{type.icon}</span>
+                          <div>
+                            <div className="font-medium text-gray-800">{type.label}</div>
+                            <div className="text-xs text-gray-500">{type.category}</div>
+                          </div>
+                        </label>
                       ))}
-                    </select>
-                    {errors.disasterType && <p className="text-red-500 text-sm mt-1">{errors.disasterType}</p>}
+                    </div>
+                    {errors.incidentType && <p className="text-red-500 text-sm mt-1">{errors.incidentType}</p>}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Urgency Level *
+                    </label>
+                    <div className="space-y-2">
+                      {urgencyLevels.map(level => (
+                        <label key={level.value} className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${
+                          formData.urgency === level.value 
+                            ? `border-${level.color}-500 bg-${level.color}-50` 
+                            : 'border-gray-300 hover:border-gray-400'
+                        }`}>
+                          <input
+                            type="radio"
+                            name="urgency"
+                            value={level.value}
+                            checked={formData.urgency === level.value}
+                            onChange={handleChange}
+                            className="sr-only"
+                          />
+                          <div className={`w-3 h-3 rounded-full bg-${level.color}-500`}></div>
+                          <div className="flex-1">
+                            <div className="font-medium text-gray-800">{level.label}</div>
+                            <div className="text-sm text-gray-600">{level.description}</div>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                    {errors.urgency && <p className="text-red-500 text-sm mt-1">{errors.urgency}</p>}
                   </div>
 
                   <div>
@@ -350,12 +438,58 @@ const ReportForm = () => {
                     <textarea
                       name="description"
                       value={formData.description}
-                      placeholder="Describe the incident in detail..."
+                      placeholder="Describe the incident in detail. Include what happened, current situation, and any immediate needs..."
                       rows={4}
                       className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors resize-none ${errors.description ? 'border-red-500' : 'border-gray-300'}`}
                       onChange={handleChange}
                     />
                     {errors.description && <p className="text-red-500 text-sm mt-1">{errors.description}</p>}
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Number of Witnesses
+                      </label>
+                      <input
+                        type="number"
+                        name="witnessCount"
+                        value={formData.witnessCount}
+                        placeholder="0"
+                        min="0"
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors"
+                        onChange={handleChange}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Estimated People Affected
+                      </label>
+                      <input
+                        type="number"
+                        name="estimatedAffected"
+                        value={formData.estimatedAffected}
+                        placeholder="0"
+                        min="0"
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors"
+                        onChange={handleChange}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Additional Contact Information
+                    </label>
+                    <input
+                      type="text"
+                      name="additionalContact"
+                      value={formData.additionalContact}
+                      placeholder="Alternative contact person or emergency contact"
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors"
+                      onChange={handleChange}
+                    />
                   </div>
                 </div>
 

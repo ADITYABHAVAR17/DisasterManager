@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Home, BarChart3, MapPin, AlertTriangle, Radio, LogOut, User, Shield } from 'lucide-react';
+import { Home, BarChart3, MapPin, AlertTriangle, Radio, LogOut, User, Shield, Brain, Camera } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useState } from 'react';
 
@@ -11,10 +11,9 @@ const Navigation = () => {
 
   const navItems = [
     { path: '/', label: 'Home', icon: Home, public: true },
-    { path: '/report', label: 'Report Incident', icon: AlertTriangle, public: true },
-    { path: '/dashboard', label: 'Admin Dashboard', icon: BarChart3, public: false },
-    { path: '/map', label: 'Live Map', icon: MapPin, public: true },
-    { path: '/realtime', label: 'Real-time Map', icon: Radio, public: true },
+    { path: '/report', label: 'Report Emergency', icon: Camera, public: true, highlight: true },
+    { path: '/realtime', label: 'Live Resources', icon: Radio, public: true },
+    { path: '/dashboard', label: 'Admin Control', icon: Shield, public: false },
   ];
 
   const handleLogout = async () => {
@@ -42,25 +41,39 @@ const Navigation = () => {
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center">
             <Link to="/" className="flex items-center space-x-2">
-              <AlertTriangle className="h-8 w-8 text-red-500" />
-              <span className="text-xl font-bold text-gray-800">DisasterConnect</span>
+              <div className="bg-red-500 p-2 rounded-lg">
+                <AlertTriangle className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <span className="text-xl font-bold text-gray-800">DisasterConnect</span>
+                <div className="text-xs text-gray-500">AI-Powered Emergency Response</div>
+              </div>
             </Link>
           </div>
           
           <div className="flex items-center space-x-8">
-            <div className="flex space-x-8">
-              {visibleNavItems.map(({ path, label, icon: Icon }) => (
+            <div className="flex space-x-6">
+              {visibleNavItems.map(({ path, label, icon: Icon, highlight }) => (
                 <Link
                   key={path}
                   to={path}
-                  className={`flex items-center space-x-1 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                  className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                     location.pathname === path
-                      ? 'text-red-600 bg-red-50'
-                      : 'text-gray-600 hover:text-red-600 hover:bg-gray-50'
+                      ? highlight 
+                        ? 'text-white bg-red-600 shadow-lg'
+                        : 'text-red-600 bg-red-50'
+                      : highlight
+                        ? 'text-red-600 bg-red-50 hover:bg-red-600 hover:text-white hover:shadow-lg'
+                        : 'text-gray-600 hover:text-red-600 hover:bg-gray-50'
                   }`}
                 >
                   <Icon className="h-4 w-4" />
                   <span>{label}</span>
+                  {highlight && (
+                    <span className="ml-1 px-2 py-1 text-xs bg-red-200 text-red-800 rounded-full">
+                      AI
+                    </span>
+                  )}
                 </Link>
               ))}
             </div>

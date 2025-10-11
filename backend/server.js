@@ -4,6 +4,8 @@ import { Server } from "socket.io";
 import dotenv from "dotenv";
 import connectDB from "./config/db.js";
 import reportRoutes from "./routes/reportRoutes.js";
+import resourceRoutes from "./routes/resourceRoutes.js";
+import dashboardRoutes from "./routes/dashboardRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import cors from "cors";
 
@@ -16,6 +18,8 @@ app.use(express.json());
 
 // attach api routes
 app.use("/api/reports", reportRoutes);
+app.use("/api/resources", resourceRoutes);
+app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/auth", authRoutes);
 
 // create server + socket.io
@@ -86,9 +90,29 @@ const broadcastReport = (eventName, report) => {
   }
 };
 
-// Expose io and broadcast helper to controllers via app.locals
+// Helper: broadcast resource to subscribers near resource location
+const broadcastResource = (eventName, resource) => {
+  if (!resource?.location) {
+    io.emit(eventName, resource); // fallback to broadcast
+    return;
+  }
+  const { lat, lng } = resource.location;
+  for (const [socketId, sub] of subscriptions.entries()) {
+    try {
+      const dist = haversineDistanceKm(lat, lng, sub.lat, sub.lng);
+      if (dist <= sub.radiusKm) {
+        io.to(socketId).emit(eventName, resource);
+      }
+    } catch (err) {
+      console.error("Error broadcasting to", socketId, err);
+    }
+  }
+};
+
+// Expose io and broadcast helpers to controllers via app.locals
 app.locals.io = io;
 app.locals.broadcastReport = broadcastReport;
+app.locals.broadcastResource = broadcastResource;
 
 const PORT = process.env.PORT || 5000;
 httpServer.listen(PORT, () => console.log(`Server running on port ${PORT}`));
