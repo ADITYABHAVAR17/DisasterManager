@@ -1,14 +1,21 @@
-# FastAPI Disaster Detection Backend
+# FastAPI Disaster Detection & Damage Assessment Backend
 
-This FastAPI backend provides REST API endpoints for disaster detection using your trained model.
+This FastAPI backend provides REST API endpoints for both disaster detection and damage assessment using your trained models.
 
 ## Features
 
-- **Image Upload & Prediction**: Upload images and get disaster type predictions
-- **Batch Processing**: Process multiple images at once
-- **CORS Support**: Ready for frontend integration
-- **Health Checks**: Monitor API status
-- **Model Management**: Load/reload models dynamically
+- **🌪️ Disaster Detection**: Classify disasters (Cyclone, Earthquake, Flood, Wildfire)
+- **🏗️ Damage Assessment**: Assess damage levels (No-damage, Minor-damage, Major-damage, Destroyed)
+- **🔄 Combined Analysis**: Run both models on the same image
+- **📦 Batch Processing**: Process multiple images at once
+- **🌐 CORS Support**: Ready for frontend integration
+- **🔍 Health Checks**: Monitor API and model status
+- **⚙️ Model Management**: Load/reload models dynamically
+
+## Models Used
+
+- **Disaster Detection**: TensorFlow/Keras model (`disaster.h5`)
+- **Damage Assessment**: PyTorch model (`best_damage.pth`)
 
 ## Setup
 
@@ -17,7 +24,9 @@ This FastAPI backend provides REST API endpoints for disaster detection using yo
 pip install -r requirements.txt
 ```
 
-2. Make sure your `disaster.h5` model file is in the same directory
+2. Make sure your model files are in the same directory:
+   - `disaster.h5` (TensorFlow disaster detection model)
+   - `best_damage.pth` (PyTorch damage assessment model)
 
 3. Start the server:
 ```bash
@@ -31,60 +40,77 @@ uvicorn fastapi_backend:app --host 0.0.0.0 --port 8000 --reload
 
 ## API Endpoints
 
-### Health Check
-- **GET** `/` - Basic health check
+### Health & Information
+- **GET** `/` - Basic health check with model status
 - **GET** `/health` - Detailed health information
+- **GET** `/classes` - Get all supported classes
+- **GET** `/disaster-classes` - Get disaster classes only
+- **GET** `/damage-classes` - Get damage classes only
 
 ### Model Management
-- **POST** `/load-model?model_path=disaster.h5` - Load or reload model
+- **POST** `/load-disaster-model?model_path=disaster.h5` - Load disaster model
+- **POST** `/load-damage-model?model_path=best_damage.pth` - Load damage model
 
 ### Predictions
-- **POST** `/predict` - Single image prediction
-  - Upload: `multipart/form-data` with `file` field
-  - Returns: JSON with prediction results
-
-- **POST** `/predict-batch` - Batch image prediction
-  - Upload: `multipart/form-data` with multiple `files`
-  - Returns: JSON with results for each image
-
-### Information
-- **GET** `/classes` - Get supported disaster classes
+- **POST** `/predict-disaster` - Disaster detection only
+- **POST** `/predict-damage` - Damage assessment only
+- **POST** `/predict-both` - Both models on same image
+- **POST** `/predict-batch` - Batch processing with type selection
 
 ## Usage Examples
 
-### Single Image Prediction
+### Health Check
 ```bash
-curl -X POST "http://localhost:8000/predict" \
-  -H "accept: application/json" \
+python test_client_combined.py --health
+```
+
+### Single Image Analysis
+```bash
+# Both models
+python test_client_combined.py image.jpg
+
+# Disaster detection only
+python test_client_combined.py image.jpg --disaster
+
+# Damage assessment only
+python test_client_combined.py image.jpg --damage
+```
+
+### Batch Processing
+```bash
+# Both models on multiple images
+python test_client_combined.py image1.jpg image2.jpg image3.jpg --batch
+
+# Disaster detection only on batch
+python test_client_combined.py *.jpg --batch --disaster
+```
+
+### cURL Examples
+```bash
+# Disaster detection
+curl -X POST "http://localhost:8000/predict-disaster" \
+  -H "Content-Type: multipart/form-data" \
+  -F "file=@image.jpg"
+
+# Damage assessment
+curl -X POST "http://localhost:8000/predict-damage" \
+  -H "Content-Type: multipart/form-data" \
+  -F "file=@image.jpg"
+
+# Combined analysis
+curl -X POST "http://localhost:8000/predict-both" \
   -H "Content-Type: multipart/form-data" \
   -F "file=@image.jpg"
 ```
 
-### Python Client
-```python
-import requests
+## Response Formats
 
-# Single prediction
-with open('image.jpg', 'rb') as f:
-    files = {'file': ('image.jpg', f, 'image/jpeg')}
-    response = requests.post('http://localhost:8000/predict', files=files)
-    result = response.json()
-    print(result)
-```
-
-### Test Client
-Use the provided test client:
-```bash
-python test_client.py image.jpg
-```
-
-## Response Format
-
-### Single Prediction Response
+### Disaster Detection Response
 ```json
 {
   "success": true,
-  "filename": "image.jpg",
+  "filename": "disaster.jpg",
+  "type": "disaster_detection",
   "prediction": {
     "predicted_class": "Flood",
     "confidence": 0.8542,
@@ -98,15 +124,55 @@ python test_client.py image.jpg
 }
 ```
 
-### Batch Prediction Response
+### Damage Assessment Response
 ```json
 {
   "success": true,
+  "filename": "damage.jpg",
+  "type": "damage_assessment",
+  "prediction": {
+    "predicted_class": "Major-damage",
+    "confidence": 0.7834,
+    "probabilities": {
+      "No-damage": 0.0123,
+      "Minor-damage": 0.2043,
+      "Major-damage": 0.7834,
+      "Destroyed": 0.0000
+    }
+  }
+}
+```
+
+### Combined Analysis Response
+```json
+{
+  "success": true,
+  "filename": "combined.jpg",
+  "type": "combined_analysis",
+  "results": {
+    "disaster_detection": {
+      "success": true,
+      "prediction": { /* disaster prediction */ }
+    },
+    "damage_assessment": {
+      "success": true,
+      "prediction": { /* damage prediction */ }
+    }
+  }
+}
+```
+
+### Batch Processing Response
+```json
+{
+  "success": true,
+  "prediction_type": "both",
   "results": [
     {
       "filename": "image1.jpg",
       "success": true,
-      "prediction": { ... }
+      "disaster_prediction": { /* disaster results */ },
+      "damage_prediction": { /* damage results */ }
     },
     {
       "filename": "image2.jpg",
@@ -117,16 +183,44 @@ python test_client.py image.jpg
 }
 ```
 
-## Integration with Frontend
+## Frontend Integration
 
-The API includes CORS middleware and is ready for frontend integration. You can make requests from your React frontend like this:
+The API includes CORS middleware and is ready for frontend integration:
 
 ```javascript
-const uploadImage = async (file) => {
+// Single prediction
+const uploadForDisaster = async (file) => {
   const formData = new FormData();
   formData.append('file', file);
   
-  const response = await fetch('http://localhost:8000/predict', {
+  const response = await fetch('http://localhost:8000/predict-disaster', {
+    method: 'POST',
+    body: formData
+  });
+  
+  return await response.json();
+};
+
+// Combined analysis
+const uploadForBoth = async (file) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  
+  const response = await fetch('http://localhost:8000/predict-both', {
+    method: 'POST',
+    body: formData
+  });
+  
+  return await response.json();
+};
+
+// Batch processing
+const uploadBatch = async (files, type = 'both') => {
+  const formData = new FormData();
+  files.forEach(file => formData.append('files', file));
+  formData.append('prediction_type', type);
+  
+  const response = await fetch('http://localhost:8000/predict-batch', {
     method: 'POST',
     body: formData
   });
@@ -135,9 +229,39 @@ const uploadImage = async (file) => {
 };
 ```
 
-## Docker Support
+## Model Architecture
 
-To containerize the API:
+### Disaster Detection Model
+- **Framework**: TensorFlow/Keras
+- **Input Size**: 64x64 RGB images
+- **Classes**: 4 disaster types
+- **Output**: Softmax probabilities
+
+### Damage Assessment Model
+- **Framework**: PyTorch
+- **Architecture**: Custom CNN with dropout
+- **Input Size**: 64x64 RGB images
+- **Classes**: 4 damage levels
+- **Output**: Softmax probabilities
+
+## Error Handling
+
+The API includes comprehensive error handling:
+- File validation (image types only)
+- Model loading errors
+- Prediction errors
+- Batch size limits (max 10 files)
+- Individual model failures in combined mode
+
+## Performance Notes
+
+- Models are loaded once at startup for better performance
+- GPU acceleration automatically used if available (PyTorch)
+- Images are preprocessed to match model requirements
+- Supports common image formats (JPG, JPEG, PNG)
+- Automatic format conversion and normalization
+
+## Docker Support
 
 ```dockerfile
 FROM python:3.9-slim
@@ -152,17 +276,8 @@ EXPOSE 8000
 CMD ["uvicorn", "fastapi_backend:app", "--host", "0.0.0.0", "--port", "8000"]
 ```
 
-## Error Handling
-
-The API includes comprehensive error handling:
-- File validation (image types only)
-- Model loading errors
-- Prediction errors
-- Batch size limits (max 10 files)
-
-## Performance Notes
-
-- Model is loaded once at startup for better performance
-- Images are preprocessed to match model input requirements
-- Supports common image formats (JPG, JPEG, PNG)
-- Automatic format conversion (e.g., RGBA to RGB)
+Run with Docker:
+```bash
+docker build -t disaster-api .
+docker run -p 8000:8000 disaster-api
+```
