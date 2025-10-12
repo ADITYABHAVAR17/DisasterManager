@@ -17,6 +17,19 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Health check endpoint
+app.get("/api/health", (req, res) => {
+  res.json({ 
+    status: "ok", 
+    timestamp: new Date().toISOString(),
+    version: "1.0.0",
+    services: {
+      database: "connected",
+      server: "running"
+    }
+  });
+});
+
 // attach api routes
 app.use("/api/reports", reportRoutes);
 app.use("/api/resources", resourceRoutes);

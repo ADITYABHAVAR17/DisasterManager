@@ -12,8 +12,9 @@ const Navigation = () => {
   const navItems = [
     { path: '/', label: 'Home', icon: Home, public: true },
     { path: '/report', label: 'Report Emergency', icon: Camera, public: true, highlight: true },
+    { path: '/verified-reports', label: 'Verified Reports', icon: Shield, public: true },
     { path: '/realtime', label: 'Live Resources', icon: Radio, public: true },
-    { path: '/dashboard', label: 'Admin Control', icon: Shield, public: false },
+    { path: '/dashboard', label: 'Admin Control', icon: BarChart3, public: false },
   ];
 
   const handleLogout = async () => {

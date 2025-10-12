@@ -7,6 +7,7 @@ import Home from './pages/Home';
 import ReportForm from './components/ReportForm';
 import AdminDashboard from './pages/AdminDashboard';
 import LiveMap from './pages/LiveMap';
+import VerifiedReportsMap from './pages/VerifiedReportsMap';
 import RealtimeMap from './pages/RealtimeMap';
 import LoginPage from './pages/LoginPage';
 import NotFound from './pages/NotFound';
@@ -37,6 +38,14 @@ function App() {
                 element={
                   <ErrorBoundary>
                     <LiveMap />
+                  </ErrorBoundary>
+                } 
+              />
+              <Route 
+                path="/verified-reports" 
+                element={
+                  <ErrorBoundary>
+                    <VerifiedReportsMap />
                   </ErrorBoundary>
                 } 
               />

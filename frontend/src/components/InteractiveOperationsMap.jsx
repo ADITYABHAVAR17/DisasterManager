@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MapContainer, TileLayer, Marker, Popup, Circle } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, Circle, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import { 
   AlertTriangle, 
@@ -22,8 +22,20 @@ L.Icon.Default.mergeOptions({
   shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
 });
 
-const InteractiveOperationsMap = ({ reports = [], resources = [], isConnected }) => {
+const InteractiveOperationsMap = ({ reports = [], resources = [], isConnected, onMapClick }) => {
   const [mapCenter] = useState([20.0384615, 73.8198394]); // Default center
+
+  // Component to handle map clicks
+  const MapClickHandler = () => {
+    useMapEvents({
+      click: (e) => {
+        if (onMapClick) {
+          onMapClick(e.latlng);
+        }
+      }
+    });
+    return null;
+  };
 
   // Create custom icons for different types
   const createCustomIcon = (type, color, size = 30) => {
@@ -83,6 +95,7 @@ const InteractiveOperationsMap = ({ reports = [], resources = [], isConnected })
         style={{ height: '100%', width: '100%' }}
         className="rounded-lg"
       >
+        <MapClickHandler />
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'

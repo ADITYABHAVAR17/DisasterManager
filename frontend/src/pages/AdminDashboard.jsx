@@ -23,6 +23,7 @@ export default function AdminDashboard() {
   const [updateData, setUpdateData] = useState({ status: '', notes: '' });
   const [showResourceModal, setShowResourceModal] = useState(false);
   const [editingResource, setEditingResource] = useState(null);
+  const [mapClickedCoords, setMapClickedCoords] = useState(null); // Store clicked coordinates
   const [resourceFormData, setResourceFormData] = useState({
     name: '',
     type: 'safe-zone',
@@ -253,6 +254,17 @@ export default function AdminDashboard() {
     }
   };
 
+  // Handle map click to set coordinates for new resources
+  const handleMapClick = (latlng) => {
+    console.log('🗺️ Map clicked at:', latlng);
+    setMapClickedCoords(latlng);
+    
+    // Show notification that coordinates are captured
+    if (window.confirm(`Coordinates captured: ${latlng.lat.toFixed(6)}, ${latlng.lng.toFixed(6)}\n\nWould you like to add a resource at this location?`)) {
+      handleCreateResource(latlng);
+    }
+  };
+
   // Resource management handlers
   const handleCreateResource = (coordinates = null) => {
     setEditingResource(null);
@@ -292,19 +304,40 @@ export default function AdminDashboard() {
 
   const handleSaveResource = async () => {
     try {
+      // Validate required fields
+      if (!resourceFormData.name || !resourceFormData.lat || !resourceFormData.lng || !resourceFormData.capacity) {
+        alert('Please fill in all required fields (Name, Latitude, Longitude, Capacity)');
+        return;
+      }
+
+      // Structure the data properly for the backend
       const resourceData = {
-        ...resourceFormData,
+        name: resourceFormData.name,
+        type: resourceFormData.type,
         lat: parseFloat(resourceFormData.lat),
         lng: parseFloat(resourceFormData.lng),
+        address: resourceFormData.address,
         capacity: parseInt(resourceFormData.capacity),
-        currentOccupancy: parseInt(resourceFormData.currentOccupancy || 0)
+        currentOccupancy: parseInt(resourceFormData.currentOccupancy || 0),
+        availability: resourceFormData.availability,
+        contact: {
+          phone: resourceFormData.contact.phone || '',
+          email: resourceFormData.contact.email || '',
+          inCharge: resourceFormData.contact.inCharge || ''
+        },
+        services: resourceFormData.services || [],
+        description: resourceFormData.description || ''
       };
+
+      console.log('Sending resource data:', resourceData);
 
       let response;
       if (editingResource) {
         response = await resourceAPI.updateResource(editingResource._id, resourceData);
+        console.log('Update response:', response);
       } else {
         response = await resourceAPI.createResource(resourceData);
+        console.log('Create response:', response);
       }
 
       if (response.success) {
@@ -315,7 +348,23 @@ export default function AdminDashboard() {
         }
 
         setShowResourceModal(false);
+        setMapClickedCoords(null); // Clear clicked coordinates
         setEditingResource(null);
+        
+        // Reset form
+        setResourceFormData({
+          name: '',
+          type: 'safe-zone',
+          lat: '',
+          lng: '',
+          address: '',
+          capacity: '',
+          currentOccupancy: '',
+          availability: 'available',
+          contact: { phone: '', email: '', inCharge: '' },
+          services: [],
+          description: ''
+        });
         
         // Show success notification
         if ('Notification' in window && Notification.permission === 'granted') {
@@ -323,32 +372,79 @@ export default function AdminDashboard() {
             body: editingResource ? 'Resource has been successfully updated' : 'New resource has been created',
             icon: '/favicon.ico'
           });
+        } else {
+          alert(editingResource ? '✅ Resource Updated Successfully!' : '✅ Resource Created Successfully!');
         }
+      } else {
+        throw new Error(response.message || 'Failed to save resource');
       }
     } catch (error) {
       console.error('Error saving resource:', error);
-      alert('Failed to save resource. Please try again.');
+      alert(`Failed to save resource: ${error.message || error}. Please try again.`);
     }
   };
 
   const handleDeleteResource = async (resourceId) => {
-    if (window.confirm('Are you sure you want to delete this resource?')) {
+    if (window.confirm('Are you sure you want to delete this resource? This action cannot be undone.')) {
       try {
+        console.log('Deleting resource:', resourceId);
         const response = await resourceAPI.deleteResource(resourceId);
+        console.log('Delete response:', response);
+        
         if (response.success) {
+          // Remove from local state immediately
           setResources(prev => prev.filter(r => r._id !== resourceId));
           
+          // Show success notification
           if ('Notification' in window && Notification.permission === 'granted') {
             new Notification('✅ Resource Deleted', {
               body: 'Resource has been successfully deleted',
               icon: '/favicon.ico'
             });
+          } else {
+            alert('✅ Resource Deleted Successfully!');
           }
+        } else {
+          throw new Error(response.message || 'Failed to delete resource');
         }
       } catch (error) {
         console.error('Error deleting resource:', error);
-        alert('Failed to delete resource. Please try again.');
+        alert(`Failed to delete resource: ${error.message || error}. Please try again.`);
       }
+    }
+  };
+
+  // Test API function for debugging
+  const testResourceAPI = async () => {
+    try {
+      console.log('🧪 Testing Resource API...');
+      
+      // Test server health first
+      console.log('🔍 Checking server health...');
+      const healthResponse = await fetch('http://localhost:5000/api/health');
+      if (!healthResponse.ok) {
+        throw new Error(`Server health check failed: ${healthResponse.status}`);
+      }
+      const healthData = await healthResponse.json();
+      console.log('💓 Server health:', healthData);
+      
+      // Test API connectivity
+      console.log('🔗 Testing resource API endpoint...');
+      const response = await fetch('http://localhost:5000/api/resources');
+      if (!response.ok) {
+        throw new Error(`API responded with status: ${response.status}`);
+      }
+      
+      console.log('✅ API is accessible');
+      
+      // Test getting resources
+      const resourcesResponse = await resourceAPI.getResources();
+      console.log('📋 Get resources response:', resourcesResponse);
+      
+      alert('✅ API Test Completed! Check console for details.');
+    } catch (error) {
+      console.error('❌ API Test failed:', error);
+      alert(`❌ API Test Failed: ${error.message}\n\nMake sure the backend server is running on port 5000`);
     }
   };
 
@@ -836,13 +932,22 @@ export default function AdminDashboard() {
             <div className="space-y-6">
               <div className="flex justify-between items-center">
                 <h3 className="text-xl font-semibold">Resource Management</h3>
-                <button
-                  onClick={handleCreateResource}
-                  className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add Resource
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={testResourceAPI}
+                    className="bg-purple-600 text-white px-3 py-2 rounded-lg hover:bg-purple-700 flex items-center gap-2 text-sm"
+                    title="Test API Connection"
+                  >
+                    🧪 Test API
+                  </button>
+                  <button
+                    onClick={handleCreateResource}
+                    className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add Resource
+                  </button>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -928,6 +1033,14 @@ export default function AdminDashboard() {
                   <p className="text-sm text-gray-600 mt-1">
                     Comprehensive view of all emergency reports, safe zones, blocked roads, and rescue operations
                   </p>
+                  <p className="text-xs text-blue-600 mt-1">
+                    💡 Click anywhere on the map to quickly add a resource at that location
+                  </p>
+                  {showResourceModal && (
+                    <p className="text-xs text-green-600 mt-1">
+                      📝 Resource form is open in the sidebar →
+                    </p>
+                  )}
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="text-sm text-gray-600">
@@ -954,11 +1067,14 @@ export default function AdminDashboard() {
             
             <div className="flex h-[700px]">
               {/* Interactive Map */}
-              <div className="flex-1 relative">
+              <div className={`flex-1 relative ${
+                showResourceModal && activeTab === 'interactive-map' ? 'mr-96' : ''
+              }`}>
                 <InteractiveOperationsMap 
                   reports={reports}
                   resources={resources}
                   isConnected={isConnected}
+                  onMapClick={handleMapClick}
                 />
               </div>
               
@@ -1096,14 +1212,30 @@ export default function AdminDashboard() {
 
         {/* Resource Modal */}
         {showResourceModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <div className={`fixed z-50 ${
+            activeTab === 'interactive-map' 
+              ? 'right-0 top-0 bottom-0 w-96 bg-white shadow-2xl border-l overflow-y-auto' 
+              : 'inset-0 bg-black bg-opacity-50 flex items-center justify-center'
+          }`}>
+            <div className={`${
+              activeTab === 'interactive-map' 
+                ? 'h-full p-6 bg-white' 
+                : 'bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl'
+            }`}>
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-semibold">
                   {editingResource ? 'Edit Resource' : 'Add New Resource'}
+                  {mapClickedCoords && (
+                    <span className="text-sm text-green-600 block">
+                      📍 Using map coordinates: {mapClickedCoords.lat.toFixed(6)}, {mapClickedCoords.lng.toFixed(6)}
+                    </span>
+                  )}
                 </h3>
                 <button
-                  onClick={() => setShowResourceModal(false)}
+                  onClick={() => {
+                    setShowResourceModal(false);
+                    setMapClickedCoords(null);
+                  }}
                   className="text-gray-500 hover:text-gray-700"
                 >
                   <X className="w-6 h-6" />
@@ -1111,7 +1243,9 @@ export default function AdminDashboard() {
               </div>
 
               <form onSubmit={(e) => { e.preventDefault(); handleSaveResource(); }} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className={`grid gap-4 ${
+                  activeTab === 'interactive-map' ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'
+                }`}>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
                     <input
@@ -1143,7 +1277,12 @@ export default function AdminDashboard() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Latitude *</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Latitude * 
+                      {resourceFormData.lat && mapClickedCoords && (
+                        <span className="text-green-600 text-xs ml-1">📍 from map</span>
+                      )}
+                    </label>
                     <input
                       type="number"
                       step="any"
@@ -1156,7 +1295,12 @@ export default function AdminDashboard() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Longitude *</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Longitude *
+                      {resourceFormData.lng && mapClickedCoords && (
+                        <span className="text-green-600 text-xs ml-1">📍 from map</span>
+                      )}
+                    </label>
                     <input
                       type="number"
                       step="any"
@@ -1277,7 +1421,10 @@ export default function AdminDashboard() {
                 <div className="flex justify-end space-x-3 pt-4">
                   <button
                     type="button"
-                    onClick={() => setShowResourceModal(false)}
+                    onClick={() => {
+                      setShowResourceModal(false);
+                      setMapClickedCoords(null);
+                    }}
                     className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
                   >
                     Cancel
