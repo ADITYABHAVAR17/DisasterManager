@@ -101,7 +101,7 @@ export const AuthProvider = ({ children }) => {
 
       try {
         axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-        const response = await axios.get('http://localhost:5000/api/auth/verify');
+        const response = await axios.get('/api/auth/verify');
         
         if (response.data.success) {
           dispatch({
