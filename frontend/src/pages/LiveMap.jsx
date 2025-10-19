@@ -21,7 +21,7 @@ const LiveMap = () => {
   useEffect(() => {
     const fetchReports = async () => {
       try {
-        const response = await axios.get('http://localhost:5000/api/reports');
+        const response = await axios.get('/api/reports');
         const data = response.data;
         
         // Ensure data is an array

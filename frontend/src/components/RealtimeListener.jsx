@@ -4,7 +4,7 @@ import io from 'socket.io-client';
 const RealtimeListener = ({ lat, lng, radiusKm = 5, onNewReport, onReportUpdated }) => {
   useEffect(() => {
     // Create socket connection
-    const socket = io('http://localhost:5000');
+    const socket = io('https://disastermanager.onrender.com');
 
     socket.on('connect', () => {
       console.log('Connected to real-time server');

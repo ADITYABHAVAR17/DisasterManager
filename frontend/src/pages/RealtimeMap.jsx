@@ -22,7 +22,7 @@ const RealtimeMap = () => {
 
   // Initialize socket connection
   useEffect(() => {
-    const newSocket = io("http://localhost:5000");
+    const newSocket = io("https://disastermanager.onrender.com/");
     setSocket(newSocket);
 
     newSocket.on("connect", () => {
@@ -68,7 +68,7 @@ const RealtimeMap = () => {
 
   // Load initial reports
   useEffect(() => {
-    fetch("http://localhost:5000/api/reports")
+    fetch("/api/reports")
       .then((r) => r.json())
       .then((data) => {
         const reportsArray = Array.isArray(data) ? data : [];
