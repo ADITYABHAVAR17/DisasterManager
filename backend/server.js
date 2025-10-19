@@ -19,14 +19,14 @@ app.use(express.json());
 
 // Health check endpoint
 app.get("/api/health", (req, res) => {
-  res.json({ 
-    status: "ok", 
+  res.json({
+    status: "ok",
     timestamp: new Date().toISOString(),
     version: "1.0.0",
     services: {
       database: "connected",
-      server: "running"
-    }
+      server: "running",
+    },
   });
 });
 
@@ -55,8 +55,10 @@ const haversineDistanceKm = (lat1, lon1, lat2, lon2) => {
   const dLon = toRad(lon2 - lon1);
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
-    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    Math.cos(toRad(lat1)) *
+      Math.cos(toRad(lat2)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 };
@@ -68,8 +70,15 @@ io.on("connection", (socket) => {
   // Client subscribes to an area: { lat, lng, radiusKm }
   socket.on("subscribeToArea", (payload) => {
     const { lat, lng, radiusKm = 5 } = payload || {};
-    subscriptions.set(socket.id, { lat: Number(lat), lng: Number(lng), radiusKm: Number(radiusKm) });
-    console.log(`Socket ${socket.id} subscribed to area`, subscriptions.get(socket.id));
+    subscriptions.set(socket.id, {
+      lat: Number(lat),
+      lng: Number(lng),
+      radiusKm: Number(radiusKm),
+    });
+    console.log(
+      `Socket ${socket.id} subscribed to area`,
+      subscriptions.get(socket.id)
+    );
   });
 
   // Client can unsubscribe
