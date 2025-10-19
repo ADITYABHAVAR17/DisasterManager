@@ -32,6 +32,14 @@ const Home = () => {
       color: 'blue'
     },
     {
+      icon: CheckCircle,
+      title: 'Verified Reports Map',
+      description: 'Browse confirmed and resolved incidents in your area with detailed verification status.',
+      action: 'View Verified Reports',
+      link: '/verified-reports',
+      color: 'green'
+    },
+    {
       icon: Shield,
       title: 'Admin Control Center',
       description: 'Comprehensive dashboard for emergency responders to manage resources and coordinate response.',

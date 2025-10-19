@@ -2,11 +2,18 @@ import Report from "../models/reportModel.js";
 import axios from "axios";
 
 // Weather API configuration (using OpenWeatherMap - replace with your API key)
-const WEATHER_API_KEY = process.env.WEATHER_API_KEY || "demo_key";
+const WEATHER_API_KEY = process.env.WEATHER_API_KEY || "a20b0be12d000c0d0de0083058a365bc";
 const WEATHER_BASE_URL = "https://api.openweathermap.org/data/2.5";
 
 // Terrain elevation API (using Open-Elevation)
 const ELEVATION_BASE_URL = "https://api.open-elevation.com/api/v1";
+const BACKUP_ELEVATION_API = "https://api.opentopodata.org/v1/srtm30m"; // Backup API
+
+// Rate limiting for API calls
+const apiCallCache = new Map();
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache
+const MIN_REQUEST_INTERVAL = 1000; // 1 second between requests
+let lastApiCall = 0;
 
 // Risk zone types and their base risk scores
 const RISK_ZONE_TYPES = {
@@ -20,18 +27,40 @@ const RISK_ZONE_TYPES = {
 
 // Get weather data from API
 export const getWeatherData = async (lat, lng) => {
+  // Create cache key
+  const cacheKey = `weather_${lat.toFixed(3)}_${lng.toFixed(3)}`;
+  
+  // Check cache first (weather data cached for shorter time)
+  const cached = apiCallCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < (10 * 60 * 1000)) { // 10 minutes for weather
+    console.log('Using cached weather data for', lat, lng);
+    return cached.data;
+  }
+
   try {
+    // Rate limiting
+    const now = Date.now();
+    const timeSinceLastCall = now - lastApiCall;
+    if (timeSinceLastCall < MIN_REQUEST_INTERVAL) {
+      await new Promise(resolve => setTimeout(resolve, MIN_REQUEST_INTERVAL - timeSinceLastCall));
+    }
+    lastApiCall = Date.now();
+
+    console.log('Fetching weather data from API for', lat, lng);
+    
     // Current weather
     const currentWeather = await axios.get(
-      `${WEATHER_BASE_URL}/weather?lat=${lat}&lon=${lng}&appid=${WEATHER_API_KEY}&units=metric`
+      `${WEATHER_BASE_URL}/weather?lat=${lat}&lon=${lng}&appid=${WEATHER_API_KEY}&units=metric`,
+      { timeout: 5000 }
     );
 
     // Weather forecast (5 day)
     const forecast = await axios.get(
-      `${WEATHER_BASE_URL}/forecast?lat=${lat}&lon=${lng}&appid=${WEATHER_API_KEY}&units=metric`
+      `${WEATHER_BASE_URL}/forecast?lat=${lat}&lon=${lng}&appid=${WEATHER_API_KEY}&units=metric`,
+      { timeout: 5000 }
     );
 
-    return {
+    const weatherData = {
       current: {
         temperature: currentWeather.data.main.temp,
         humidity: currentWeather.data.main.humidity,
@@ -53,31 +82,84 @@ export const getWeatherData = async (lat, lng) => {
         condition: item.weather[0].main
       }))
     };
+
+    // Cache the result
+    apiCallCache.set(cacheKey, {
+      data: weatherData,
+      timestamp: Date.now()
+    });
+
+    return weatherData;
   } catch (error) {
-    console.warn('Weather API error, using mock data:', error.message);
-    return getMockWeatherData(lat, lng);
+    const errorCode = error.response?.status || error.code || 'UNKNOWN';
+    const errorMessage = error.response?.data?.message || error.message || 'Unknown error';
+    
+    console.warn(`⚠️  Weather API error (${errorCode}): ${errorMessage} for ${lat}, ${lng}`);
+    console.warn('🔄 Using mock weather data');
+    
+    const mockData = getMockWeatherData(lat, lng);
+    
+    // Cache mock data
+    apiCallCache.set(cacheKey, {
+      data: mockData,
+      timestamp: Date.now() - (CACHE_DURATION * 0.8)
+    });
+    
+    return mockData;
   }
 };
 
 // Get terrain elevation data
 export const getTerrainData = async (lat, lng) => {
+  // Create cache key
+  const cacheKey = `terrain_${lat.toFixed(3)}_${lng.toFixed(3)}`;
+  
+  // Check cache first
+  const cached = apiCallCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+    console.log('Using cached terrain data for', lat, lng);
+    return cached.data;
+  }
+
   try {
-    const response = await axios.get(
-      `${ELEVATION_BASE_URL}/lookup?locations=${lat},${lng}`
-    );
+    // Rate limiting - wait if needed
+    const now = Date.now();
+    const timeSinceLastCall = now - lastApiCall;
+    if (timeSinceLastCall < MIN_REQUEST_INTERVAL) {
+      await new Promise(resolve => setTimeout(resolve, MIN_REQUEST_INTERVAL - timeSinceLastCall));
+    }
+    lastApiCall = Date.now();
+
+    console.log('Fetching terrain data from API for', lat, lng);
+    let elevation = 0;
     
-    const elevation = response.data.results[0]?.elevation || 0;
+    try {
+      // Try primary API first
+      const response = await axios.get(
+        `${ELEVATION_BASE_URL}/lookup?locations=${lat},${lng}`,
+        { timeout: 5000 }
+      );
+      elevation = response.data.results[0]?.elevation || 0;
+      console.log('Primary elevation API successful');
+    } catch (primaryError) {
+      console.log('Primary elevation API failed, trying backup...');
+      
+      try {
+        // Try backup API
+        const backupResponse = await axios.get(
+          `${BACKUP_ELEVATION_API}?locations=${lat},${lng}`,
+          { timeout: 5000 }
+        );
+        elevation = backupResponse.data.results[0]?.elevation || 0;
+        console.log('Backup elevation API successful');
+      } catch (backupError) {
+        // Both APIs failed, throw to use mock data
+        throw new Error(`Both elevation APIs failed: ${primaryError.message}`);
+      }
+    }
     
-    // Calculate approximate slope (simplified)
-    const slopePoints = [
-      { lat: lat + 0.001, lng },
-      { lat: lat - 0.001, lng },
-      { lat, lng: lng + 0.001 },
-      { lat, lng: lng - 0.001 }
-    ];
-    
-    // For demo, return terrain analysis
-    return {
+    // Calculate terrain analysis
+    const terrainData = {
       elevation,
       slope: calculateSlope(elevation, lat, lng),
       soilType: classifySoilType(elevation, lat, lng),
@@ -85,9 +167,31 @@ export const getTerrainData = async (lat, lng) => {
       vegetation: classifyVegetation(lat, lng),
       urbanDensity: calculateUrbanDensity(lat, lng)
     };
+
+    // Cache the result
+    apiCallCache.set(cacheKey, {
+      data: terrainData,
+      timestamp: Date.now()
+    });
+
+    return terrainData;
   } catch (error) {
-    console.warn('Terrain API error, using estimated data:', error.message);
-    return getMockTerrainData(lat, lng);
+    const errorCode = error.response?.status || error.code || 'UNKNOWN';
+    const errorMessage = error.response?.data?.error || error.message || 'Unknown error';
+    
+    console.warn(`⚠️  Terrain API error (${errorCode}): ${errorMessage} for ${lat}, ${lng}`);
+    console.warn('🔄 Falling back to realistic mock data generation');
+    
+    // Generate more realistic mock data based on location
+    const mockData = getMockTerrainData(lat, lng);
+    
+    // Cache the mock data too (shorter duration)
+    apiCallCache.set(cacheKey, {
+      data: mockData,
+      timestamp: Date.now() - (CACHE_DURATION * 0.8) // Cache for shorter time
+    });
+    
+    return mockData;
   }
 };
 
@@ -348,13 +452,65 @@ const getMockWeatherData = (lat, lng) => {
   };
 };
 
+// Clean up old cache entries periodically
+const cleanupCache = () => {
+  const now = Date.now();
+  for (const [key, value] of apiCallCache.entries()) {
+    if (now - value.timestamp > CACHE_DURATION) {
+      apiCallCache.delete(key);
+    }
+  }
+};
+
+// Run cache cleanup every 10 minutes
+setInterval(cleanupCache, 10 * 60 * 1000);
+
+// Export cleanup function for manual use
+export const clearApiCache = () => {
+  apiCallCache.clear();
+  console.log('API cache cleared');
+};
+
 const getMockTerrainData = (lat, lng) => {
+  // Generate more realistic mock data based on actual geographic patterns
+  // Using latitude/longitude to simulate realistic terrain variations
+  
+  // Simulate elevation based on location (very simplified)
+  const latFactor = Math.abs(lat - 20); // Distance from base latitude
+  const lngFactor = Math.abs(lng - 73); // Distance from base longitude
+  const baseElevation = Math.max(0, 200 - (latFactor * 10) - (lngFactor * 5) + (Math.random() * 100));
+  
+  // Coastal areas tend to be lower elevation
+  const distanceFromCoast = Math.min(latFactor, lngFactor);
+  const elevation = distanceFromCoast < 2 ? baseElevation * 0.3 : baseElevation;
+  
+  // Slope calculation based on elevation variance
+  const slope = Math.min(elevation / 20 + Math.random() * 15, 45);
+  
+  // Soil type based on elevation and region
+  let soilType;
+  if (elevation < 100) soilType = 'clay';
+  else if (elevation < 300) soilType = 'loam';
+  else if (elevation < 600) soilType = 'sandy';
+  else soilType = 'rocky';
+  
+  // Water body proximity (coastal areas have closer water bodies)
+  const waterBodies = distanceFromCoast < 2 ? Math.random() * 2 : Math.random() * 5;
+  
+  // Vegetation density (varies by elevation and climate)
+  const vegetation = Math.max(20, 80 - (elevation / 10) + (Math.random() * 30));
+  
+  // Urban density (lower in mountainous areas)
+  const urbanDensity = Math.max(5, 60 - (elevation / 15) + (Math.random() * 40));
+  
+  console.log(`Generated realistic mock terrain for ${lat}, ${lng}: elevation=${elevation.toFixed(0)}m, slope=${slope.toFixed(1)}°`);
+  
   return {
-    elevation: Math.random() * 1000,
-    slope: Math.random() * 30,
-    soilType: ['clay', 'loam', 'sandy', 'rocky'][Math.floor(Math.random() * 4)],
-    waterBodies: Math.random() * 5,
-    vegetation: Math.random() * 100,
-    urbanDensity: Math.random() * 100
+    elevation: Math.round(elevation),
+    slope: Math.round(slope * 10) / 10,
+    soilType,
+    waterBodies: Math.round(waterBodies * 10) / 10,
+    vegetation: Math.round(vegetation),
+    urbanDensity: Math.round(urbanDensity)
   };
 };
