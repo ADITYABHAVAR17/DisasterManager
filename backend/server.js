@@ -1,6 +1,8 @@
 import express from "express";
 import http from "http";
 import { Server } from "socket.io";
+import path from "path"; // Import path module
+import { fileURLToPath } from "url"; // Needed for ES module compatibility
 import dotenv from "dotenv";
 import connectDB from "./config/db.js";
 import reportRoutes from "./routes/reportRoutes.js";
@@ -16,6 +18,9 @@ connectDB();
 const app = express();
 app.use(cors());
 app.use(express.json());
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+app.use(express.static(path.join(__dirname, "../frontend", "dist")));
 
 // Health check endpoint
 app.get("/api/health", (req, res) => {
@@ -137,6 +142,11 @@ const broadcastResource = (eventName, resource) => {
 app.locals.io = io;
 app.locals.broadcastReport = broadcastReport;
 app.locals.broadcastResource = broadcastResource;
+
+
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "../frontend", "dist", "index.html"));
+});
 
 const PORT = process.env.PORT || 5000;
 httpServer.listen(PORT, () => console.log(`Server running on port ${PORT}`));

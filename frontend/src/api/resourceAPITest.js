@@ -116,7 +116,7 @@ export const testDeleteResource = async (id) => {
 // Run quick API health check
 export const checkAPIHealth = async () => {
   try {
-    const response = await fetch('http://localhost:5000/api/resources');
+    const response = await fetch('/api/resources');
     if (response.ok) {
       console.log('✅ Backend API is running and accessible');
       return true;
